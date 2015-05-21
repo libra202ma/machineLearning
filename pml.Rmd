@@ -1,0 +1,58 @@
+---
+title: "Machine Learning Model Building for Activity Tracking Device Data"
+output:
+  html_document:
+    keep_md: yes
+date: "Wednesday, May 20, 2015"
+---
+###Synopsis
+This report applies the practical machine learning algorithm to fit the activity tracking device data of a group of people doing barbell lifts correctly and incorrectly in 5 different ways, builds a model in order to predict the manner in which they did the exercise.
+
+###Data Processing
+Load required packages and data:
+```{r}
+library(caret)
+
+data <- read.csv("pml-training.csv")
+```
+Un-select first 6 columns of index, username and timestamp:
+```{r}
+data <- data[,7:160]
+
+```
+Un-select columns with mostly missing values.
+```{r}
+data[data=='']<-NA
+naa <- apply(data,2,function(x) mean(is.na(x)))
+data_clean <- data[,naa<0.5]
+```
+
+###Model Building
+Split data into training set and testing set:
+```{r}
+InTrain <- createDataPartition(data_clean$classe,p=0.75,list=FALSE)
+training <- data_clean[InTrain,]
+testing <- data_clean[-InTrain,]
+```
+
+Set fit control parameters: using 5-fold cross validation
+```{r}
+fitControl <- trainControl(method="cv",number=5,repeats=2,allowParallel=TRUE)
+tgrid <- expand.grid(mtry=c(6))
+```
+Fit a boosting tree model via gbm package:
+```{r}
+set.seed(565)
+rfFit1 <- train(classe~., data=training,method='rf',trControl=fitControl,tuneGrid = tgrid, verbose=TRUE)
+rfFit1
+print(rfFit1$finalModel)
+```
+The out of sample error estimated by the cross-validation is <0.5%, which is very low. 
+
+###Model Testing
+Do confusionMatrix on the testing data set for out of sample error:
+```{r}
+cm <- confusionMatrix(testing$classe,predict(rfFit1,testing))
+cm
+```
+The accuracy is >0.99, which is very high accuracy.
